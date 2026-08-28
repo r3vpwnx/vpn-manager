@@ -1,6 +1,6 @@
 # VPN Manager
 
-**Author:** `r0nt3x`
+**Author:** `r3vpwnx`
 
 A beautiful and powerful OpenVPN manager for CTF platforms (HackTheBox, TryHackMe, etc.) with colored output, detailed status information, and easy configuration management.
 
@@ -174,7 +174,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **r0nt3x**
 
-- GitHub: [@r0nt3x](https://github.com/r0nt3x)
+- GitHub: [@r0nt3x](https://github.com/r3vpwnx)
 
 ## ⭐ Show Your Support
 
@@ -186,4 +186,4 @@ If you have any feedback or suggestions, please open an issue on GitHub.
 
 ---
 
-**Made with ❤️ by `r0nt3x`**
+**Made with ❤️ by `r3vpwnx`**
