@@ -36,13 +36,13 @@ print_warning() {
 }
 
 # Function to check if OpenVPN is installed
-# check_openvpn() {
-#    if ! command -v openvpn &> /dev/null; then
-#        print_error "OpenVPN is not installed!"
-#        echo "Install it with: sudo apt install openvpn"
-#        exit 1
-#    fi
-#}
+ check_openvpn() {
+    if ! command -v openvpn &> /dev/null; then
+        print_error "OpenVPN is not installed!"
+        echo "Install it with: sudo apt install openvpn"
+        exit 1
+    fi
+}
 
 # Function to check if VPN directory exists
 check_vpn_dir() {
@@ -291,7 +291,7 @@ EOF
     echo "=== VPN Connection Started at $(date) ===" > "$LOG_FILE"
     
     # Start OpenVPN in background
-    sudo openvpn --config "$config_path" --daemon --log "$LOG_FILE" --writepid "$PID_FILE"
+    sudo openvpn --config "$config_path" --daemon --log "$LOG_FILE" --writepid "$PID_FILE" --pull-filter ignore "ifconfig-ipv6" --pull-filter ignore "route-ipv6"
     
     # Wait a bit and check if connection started
     sleep 3
@@ -338,7 +338,7 @@ show_usage() {
 ╔════════════════════════════════════════════════════════════╗
 ║                    VPN Manager - Usage                     ║
 ║              OpenVPN Manager for CTF                       ║
-║                      Author: r0nt3x                        ║
+║                      Author: r3vpwnx                       ║
 ╚════════════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
