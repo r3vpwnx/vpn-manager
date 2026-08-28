@@ -39,7 +39,7 @@ A beautiful and powerful OpenVPN manager for CTF platforms (HackTheBox, TryHackM
 ### Quick Install
 
 ```bash
-git clone https://github.com/r0nt3x/vpn-manager.git
+git clone https://github.com/r3vpwnx/vpn-manager.git
 cd vpn-manager
 chmod +x install.sh
 ./install.sh
@@ -172,9 +172,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-**r0nt3x**
+**r3vpwnx**
 
-- GitHub: [@r0nt3x](https://github.com/r3vpwnx)
+- GitHub: [@r3vpwnx](https://github.com/r3vpwnx)
 
 ## ⭐ Show Your Support
 
