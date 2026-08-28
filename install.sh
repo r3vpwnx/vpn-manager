@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # VPN Manager - Installation Script
-# Author: r0nt3x
+# Author: r3vpwnx
 
 set -e
 
@@ -21,7 +21,7 @@ print_banner() {
 ║                    VPN MANAGER                             ║
 ║              OpenVPN Manager for CTF                       ║
 ║                   Installation Script                      ║
-║                   Author: r0nt3x                           ║
+║                   Author: r3vpwnx                          ║
 ╚════════════════════════════════════════════════════════════╝
 EOF
     echo -e "${NC}"
