@@ -20,9 +20,11 @@ A beautiful and powerful OpenVPN manager for CTF platforms (HackTheBox, TryHackM
   - External IP detection
   - Routing information
 - 📂 **Automatic config detection** from `${VPN_MANAGER_DIR:-~/vault/vpn}/` directory
-- 🔄 **Smart connection switching** with confirmation prompts
+- 🔄 **Smart connection switching** — asks for confirmation interactively, auto-confirms when run non-interactively (or with `--yes`/`-y`)
+- 🔐 **No sudo required** — `openvpn` runs unprivileged via `setcap` (set up once by `install.sh`)
+- 🏷️ **Short aliases** — map short names to long HTB/THM filenames via `.aliases`
 - ⚠️ **Error handling** with helpful messages
-- 🔍 **Case-insensitive** config name matching
+- 🔍 **Case-insensitive and substring** config name matching
 - 🚀 **Fast and lightweight** - pure bash script
 
 ## 📋 Requirements
