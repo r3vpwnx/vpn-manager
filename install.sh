@@ -113,11 +113,26 @@ install_dependencies() {
     print_success "Dependencies installed successfully!"
 }
 
+grant_capabilities() {
+    echo
+    print_info "Granting openvpn cap_net_admin,cap_net_raw so it runs without sudo..."
+
+    local openvpn_bin
+    openvpn_bin=$(readlink -f "$(command -v openvpn)")
+
+    if sudo setcap cap_net_admin,cap_net_raw+ep "$openvpn_bin"; then
+        print_success "Capabilities set on $openvpn_bin"
+        print_warning "This lets any local process run openvpn with network-admin rights."
+    else
+        print_error "Failed to set capabilities -- connect will require sudo"
+    fi
+}
+
 setup_vpn_directory() {
     echo
     print_info "Setting up VPN directory..."
-    
-    local vpn_dir="$HOME/VPN"
+
+    local vpn_dir="${VPN_MANAGER_DIR:-$HOME/vault/vpn}"
     
     if [ ! -d "$vpn_dir" ]; then
         mkdir -p "$vpn_dir"
@@ -175,7 +190,7 @@ show_completion() {
     echo
     echo -e "${CYAN}📋 Quick Start:${NC}"
     echo
-    echo -e "  ${YELLOW}1.${NC} Place your .ovpn files in: ${CYAN}$HOME/VPN/${NC}"
+    echo -e "  ${YELLOW}1.${NC} Place your .ovpn files in: ${CYAN}${VPN_MANAGER_DIR:-$HOME/vault/vpn}/${NC}"
     echo -e "  ${YELLOW}2.${NC} List available configs: ${GREEN}vpn --available${NC}"
     echo -e "  ${YELLOW}3.${NC} Connect to VPN: ${GREEN}vpn --<name>${NC}"
     echo -e "  ${YELLOW}4.${NC} Check status: ${GREEN}vpn --status${NC}"
@@ -192,7 +207,7 @@ show_completion() {
     echo -e "  ${GREEN}vpn --help${NC}            Show all commands"
     echo
     echo -e "${BLUE}💡 Pro Tip:${NC} The script uses colored output for better visibility!"
-    echo -e "${BLUE}💡 Pro Tip:${NC} OpenVPN requires sudo privileges to connect"
+    echo -e "${BLUE}💡 Pro Tip:${NC} openvpn now runs unprivileged (setcap) -- no sudo needed to connect"
     echo
     echo -e "${MAGENTA}Created by: r0nt3x${NC}"
     echo
@@ -202,6 +217,7 @@ main() {
     print_banner
     check_root
     install_dependencies
+    grant_capabilities
     setup_vpn_directory
     install_script
     show_completion

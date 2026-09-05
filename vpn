@@ -4,10 +4,19 @@
 # Author: r3vpwnx
 # Manages OpenVPN connections with ease
 
-VPN_DIR="$HOME/VPN"
+VPN_DIR="${VPN_MANAGER_DIR:-$HOME/vault/vpn}"
 PID_FILE="/tmp/vpn_manager.pid"
 LOG_FILE="/tmp/vpn_manager.log"
 CONNECTION_FILE="/tmp/vpn_connection.info"
+
+# When stdin isn't a TTY (n8n, Claude/Codex tool calls, cron), never block on a
+# confirmation prompt -- just proceed. Pass --yes/-y to force this even when
+# a TTY is attached.
+NONINTERACTIVE=0
+if [ ! -t 0 ]; then
+    NONINTERACTIVE=1
+fi
+FORCE_YES=0
 
 # Colors for output
 RED='\033[0;31m'
@@ -208,18 +217,18 @@ EOF
     # Try graceful shutdown first
     for pid in $vpn_pids; do
         print_info "Sending SIGTERM to PID $pid..."
-        sudo kill -TERM "$pid" 2>/dev/null
+        kill -TERM "$pid" 2>/dev/null
     done
-    
+
     # Wait a bit for graceful shutdown
     sleep 2
-    
+
     # Force kill if still running
     vpn_pids=$(pgrep -f "openvpn.*\.ovpn")
     if [ -n "$vpn_pids" ]; then
         print_warning "Forcing termination..."
         for pid in $vpn_pids; do
-            sudo kill -9 "$pid" 2>/dev/null
+            kill -9 "$pid" 2>/dev/null
         done
     fi
     
@@ -254,28 +263,58 @@ EOF
     if pgrep -f "openvpn.*\.ovpn" > /dev/null; then
         print_warning "VPN already connected!"
         echo
-        read -p "Terminate existing connection and connect to $vpn_name? [y/N] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [ "$NONINTERACTIVE" -eq 1 ] || [ "$FORCE_YES" -eq 1 ]; then
+            print_info "Non-interactive mode: terminating existing connection automatically"
             terminate_vpn
             echo
         else
-            print_info "Keeping existing connection"
+            read -p "Terminate existing connection and connect to $vpn_name? [y/N] " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                terminate_vpn
+                echo
+            else
+                print_info "Keeping existing connection"
+                return 1
+            fi
+        fi
+    fi
+
+    # Find the config file: alias file, then exact match, then case-insensitive
+    # exact, then substring match (so short names like "thm" or "htb" work
+    # against long real filenames like eu-central-1-r3vpwnx-regular.ovpn)
+    local config_path=""
+    local aliases_file="$VPN_DIR/.aliases"
+
+    if [ -f "$aliases_file" ]; then
+        local aliased
+        aliased=$(grep -iE "^${vpn_name}=" "$aliases_file" | head -1 | cut -d= -f2-)
+        if [ -n "$aliased" ] && [ -f "$VPN_DIR/${aliased}.ovpn" ]; then
+            config_path="$VPN_DIR/${aliased}.ovpn"
+        fi
+    fi
+
+    if [ -z "$config_path" ] && [ -f "$VPN_DIR/${vpn_name}.ovpn" ]; then
+        config_path="$VPN_DIR/${vpn_name}.ovpn"
+    elif [ -z "$config_path" ]; then
+        config_path=$(find "$VPN_DIR" -maxdepth 1 -iname "${vpn_name}.ovpn" | head -1)
+    fi
+
+    if [ -z "$config_path" ]; then
+        local matches=()
+        while IFS= read -r -d '' f; do matches+=("$f"); done < <(find "$VPN_DIR" -maxdepth 1 -iname "*${vpn_name}*.ovpn" -print0)
+
+        if [ ${#matches[@]} -eq 1 ]; then
+            config_path="${matches[0]}"
+        elif [ ${#matches[@]} -gt 1 ]; then
+            print_error "Ambiguous name '$vpn_name' matches multiple configs:"
+            for m in "${matches[@]}"; do
+                echo -e "  - $(basename "$m" .ovpn)"
+            done
             return 1
         fi
     fi
-    
-    # Find the config file
-    local config_path=""
-    
-    # Try exact match
-    if [ -f "$VPN_DIR/${vpn_name}.ovpn" ]; then
-        config_path="$VPN_DIR/${vpn_name}.ovpn"
-    else
-        # Try case-insensitive search
-        config_path=$(find "$VPN_DIR" -maxdepth 1 -iname "${vpn_name}.ovpn" | head -1)
-    fi
-    
+
     if [ -z "$config_path" ] || [ ! -f "$config_path" ]; then
         print_error "No config file found for: $vpn_name"
         echo
@@ -290,8 +329,9 @@ EOF
     # Create log file
     echo "=== VPN Connection Started at $(date) ===" > "$LOG_FILE"
     
-    # Start OpenVPN in background
-    sudo openvpn --config "$config_path" --daemon --log "$LOG_FILE" --writepid "$PID_FILE" --pull-filter ignore "ifconfig-ipv6" --pull-filter ignore "route-ipv6"
+    # Start OpenVPN in background (runs unprivileged; openvpn binary must have
+    # cap_net_admin,cap_net_raw via setcap -- see install.sh)
+    openvpn --config "$config_path" --daemon --log "$LOG_FILE" --writepid "$PID_FILE" --pull-filter ignore "ifconfig-ipv6" --pull-filter ignore "route-ipv6"
     
     # Wait a bit and check if connection started
     sleep 3
@@ -362,8 +402,10 @@ EOF
     echo -e "${CYAN}Configuration:${NC}"
     echo -e "  VPN configs location: ${YELLOW}$VPN_DIR${NC}"
     echo -e "  Expected format: ${YELLOW}<name>.ovpn${NC}"
+    echo -e "  Short aliases: ${YELLOW}$VPN_DIR/.aliases${NC} (lines like ${YELLOW}thm=eu-central-1-r3vpwnx-regular${NC})"
     echo
-    echo -e "${MAGENTA}Note:${NC} OpenVPN requires sudo privileges for connection"
+    echo -e "${MAGENTA}Note:${NC} Add --yes/-y to auto-confirm VPN switches (used automatically"
+    echo -e "      when invoked without a TTY, e.g. from Claude/Codex/n8n)"
     echo
 }
 
@@ -371,12 +413,23 @@ EOF
 main() {
     check_openvpn
     check_vpn_dir
-    
+
+    # Global --yes/-y flag can appear anywhere in the args
+    local args=()
+    for arg in "$@"; do
+        if [ "$arg" = "--yes" ] || [ "$arg" = "-y" ]; then
+            FORCE_YES=1
+        else
+            args+=("$arg")
+        fi
+    done
+    set -- "${args[@]}"
+
     if [ $# -eq 0 ]; then
         show_usage
         exit 0
     fi
-    
+
     case "$1" in
         --help|-h)
             show_usage
